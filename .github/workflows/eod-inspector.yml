@@ -28,6 +28,11 @@ jobs:
     env:
       REPORT_MODE: ${{ github.event.inputs.report_mode || 'group' }}
       REPORT_CHAT_ID: '2'
+      # Автоштрафы ЕОД в bitrix-dashboard сразу после поста сводки
+      KPI_API_URL: https://bitrix-dashboard.vercel.app/api/kpi/auto-eod
+      KPI_CRON_SECRET: ${{ secrets.KPI_CRON_SECRET }}
+      KPI_AUTO_ENABLED: '1'
+      KPI_FINE_AMOUNT: '100'
 
     steps:
       - name: Checkout repo

@@ -90,8 +90,12 @@ async function main() {
     if (!DRY_RUN) {
       await sendReport(report.text);
       console.log('\n[✓] Report sent successfully.');
+      // Сразу после поста в Битрикс — автоштрафы за «ЕОД отсутствует»
+      await pushKpiAutoEod(TARGET_DATE, report.devResults);
     } else {
       console.log('\n[DRY RUN] Report not sent.');
+      const items = collectMissingEodItems(report.devResults);
+      console.log(`[DRY RUN] KPI would create ${items.length} fines:`, JSON.stringify(items, null, 2));
     }
   } catch (err) {
     console.error('[ERROR]', err.message);
@@ -469,6 +473,100 @@ async function sendReport(text) {
   }
 
   return result;
+}
+
+/** Задачи с подтверждённым «ЕОД отсутствует» (видимые, чат доступен). */
+function collectMissingEodItems(devResults) {
+  const items = [];
+  for (const dev of config.DEVELOPERS) {
+    const result = devResults[dev.id];
+    if (!result || result.error || !Array.isArray(result.tasks)) continue;
+    for (const task of result.tasks) {
+      if (!task.visible) continue;
+      if (task.eodUnknown) continue;
+      if (task.eodPresent) continue;
+      items.push({
+        devId: String(dev.id),
+        taskId: String(task.id),
+        taskTitle: String(task.title || '').slice(0, 200),
+      });
+    }
+  }
+  return items;
+}
+
+/**
+ * Сразу после EOD-сводки в Битрикс — выписать штрафы в bitrix-dashboard.
+ * Идемпотентно на стороне API (taskId+date+reason=ЕОД).
+ */
+function pushKpiAutoEod(dateStr, devResults) {
+  return new Promise((resolve) => {
+    if (!config.KPI_AUTO_ENABLED) {
+      console.log('[KPI] skipped — KPI_AUTO_ENABLED=false');
+      return resolve(null);
+    }
+    if (!config.KPI_CRON_SECRET) {
+      console.log('[KPI] skipped — KPI_CRON_SECRET / CRON_SECRET not set');
+      return resolve(null);
+    }
+
+    const items = collectMissingEodItems(devResults);
+    console.log(`[KPI] missing EOD items: ${items.length}`);
+    if (!items.length) {
+      console.log('[KPI] nothing to fine');
+      return resolve({ ok: true, createdCount: 0 });
+    }
+
+    const body = JSON.stringify({
+      secret: config.KPI_CRON_SECRET,
+      date: dateStr,
+      amount: config.KPI_FINE_AMOUNT || 100,
+      dryRun: false,
+      items,
+    });
+
+    let url;
+    try {
+      url = new URL(config.KPI_API_URL);
+    } catch (e) {
+      console.error('[KPI] bad KPI_API_URL:', config.KPI_API_URL);
+      return resolve(null);
+    }
+
+    const options = {
+      hostname: url.hostname,
+      path: url.pathname + (url.search || ''),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        console.log(`[KPI] HTTP ${res.statusCode}: ${data.substring(0, 500)}`);
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          resolve({ ok: false, raw: data });
+        }
+      });
+    });
+    req.on('error', (err) => {
+      console.error('[KPI] request error:', err.message);
+      resolve(null);
+    });
+    req.setTimeout(60000, () => {
+      req.destroy();
+      console.error('[KPI] timeout');
+      resolve(null);
+    });
+    req.write(body);
+    req.end();
+  });
 }
 
 // Run
