@@ -61,4 +61,11 @@ module.exports = {
 
   // Max messages to fetch per task chat
   MAX_MESSAGES_PER_CHAT: 50,
+
+  // KPI auto-fines (bitrix-dashboard) — после EOD-сводки в чат
+  KPI_API_URL: process.env.KPI_API_URL || 'https://bitrix-dashboard.vercel.app/api/kpi/auto-eod',
+  KPI_CRON_SECRET: process.env.KPI_CRON_SECRET || process.env.CRON_SECRET || '',
+  // false / "0" — не выписывать штрафы (тест)
+  KPI_AUTO_ENABLED: process.env.KPI_AUTO_ENABLED !== '0' && process.env.KPI_AUTO_ENABLED !== 'false',
+  KPI_FINE_AMOUNT: Number(process.env.KPI_FINE_AMOUNT || 100),
 };
