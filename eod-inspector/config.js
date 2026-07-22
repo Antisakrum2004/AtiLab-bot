@@ -57,7 +57,7 @@ module.exports = {
   TIMEZONE: 'Europe/Moscow',
 
   // Run hour (MSC) — for reference, cron handles actual scheduling
-  RUN_HOUR_MSC: 20,
+  RUN_HOUR_MSC: 23,
 
   // Max messages to fetch per task chat
   MAX_MESSAGES_PER_CHAT: 50,
