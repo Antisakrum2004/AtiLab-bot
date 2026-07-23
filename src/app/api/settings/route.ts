@@ -33,7 +33,7 @@ export async function GET() {
 
     const reminder1Cron = parseCronFromYaml(results[0].content) || '0 15 * * 1-5';
     const reminder2Cron = parseCronFromYaml(results[1].content) || '0 16 * * 1-5';
-    const reportCron = parseCronFromYaml(results[2].content) || '0 20 * * 1-5';
+    const reportCron = parseCronFromYaml(results[2].content) || '0 19 * * 1-5';
 
     const settings: Settings = {
       reminder1Time: cronToMsk(reminder1Cron),
@@ -49,7 +49,7 @@ export async function GET() {
     return NextResponse.json({
       reminder1Time: '18:00',
       reminder2Time: '19:00',
-      reportTime: '23:00',
+      reportTime: '22:00',
       enabledDays: [1, 2, 3, 4, 5],
     });
   }
